@@ -1,9 +1,16 @@
-import pandas as pd
-token = '1812611840:AAHoHVMW7LB_clbUq5n3OErNLf6Sj2THlss'
+import requests
 import telebot
 from telebot import types
-bot = telebot.TeleBot(token)
+import sqlite3
 import parsers
+import json
+
+token = '1812611840:AAHoHVMW7LB_clbUq5n3OErNLf6Sj2THlss'
+bot = telebot.TeleBot(token)
+
+# инициализируем соединение с БД
+#sqlite_connection = sqlite3.connect('db.db')
+#cursor = sqlite_connection.cursor()
 
 name = '';
 
@@ -11,6 +18,11 @@ name = '';
 def start(message):
     global name
     if message.text == '/reg':
+        payload = {'key': 'KeyPas', 'type': 'auth', 'id': message.from_user.id}
+        r = requests.post('https://easy-choice.ru/bot/api.php', data=payload, verify=False)
+        #print(r.text)
+        temp = json.dumps(r.text)
+        print(temp)
         bot.send_message(message.from_user.id, "Как мне тебя называть?");
         bot.register_next_step_handler(message, checker); #следующий шаг – функция get_name
     else:
