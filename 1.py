@@ -1,3 +1,5 @@
+from collections import namedtuple
+from types import SimpleNamespace
 import requests
 import telebot
 from telebot import types
@@ -12,39 +14,151 @@ bot = telebot.TeleBot(token)
 #sqlite_connection = sqlite3.connect('db.db')
 #cursor = sqlite_connection.cursor()
 
-name = '';
+def request(pack):
+    r = requests.post('https://easy-choice.ru/bot/api.php', data=pack, verify=False)
+    temp = json.loads(r.text, object_hook=lambda d:SimpleNamespace(**d))
+    return temp
+
+name = ''
+id = -1
+user = None
+curr_pack = None
+iterator = 0
+score = 0
 
 @bot.message_handler(content_types=['text'])
 def start(message):
-    global name
-    if message.text == '/reg':
-        payload = {'key': 'KeyPas', 'type': 'auth', 'id': message.from_user.id}
-        r = requests.post('https://easy-choice.ru/bot/api.php', data=payload, verify=False)
-        #print(r.text)
-        temp = json.dumps(r.text)
-        print(temp)
-        bot.send_message(message.from_user.id, "Как мне тебя называть?");
-        bot.register_next_step_handler(message, checker); #следующий шаг – функция get_name
-    else:
-        answer = parsers.main(message.text.lower())
-        bot.send_message(message.from_user.id, answer);
+    global name, user, id, curr_pack
+    if message.text == '/auth':
+        if id == -1:
+            payload = {'key': 'KeyPas', 'type': 'auth', 'id': message.from_user.id}
+            temp = request(payload)
+            bot.send_message(message.from_user.id, "О привет "+temp.name+"\nТвой счёт сейчас : "+temp.score+"\nТвой ид в системе : "+temp.id)
+            id = temp.id
+        else:
+            bot.send_message(message.from_user.id, "Ты уже авторизиторан")
+        #bot.register_next_step_handler(message, checker); #следующий шаг – функция get_name
+    
+        #answer = parsers.main(message.text.lower())
+        #bot.send_message(message.from_user.id, answer);
+    elif message.text == "/info":
+        if id != -1:
+            temp = request({'key': 'KeyPas', 'type': 'info', 'id': id})
+            bot.send_message(message.from_user.id, "Информация о "+temp.nick+"\nТвой счёт сейчас : "+temp.score+"\nТвой ид в системе : "+temp.id)
+        else:
+           bot.send_message(message.from_user.id, "Тебе надо зарегаться или авторизоваться") 
+    elif message.text == "/reg":
+        if id == -1:
+            bot.send_message(message.from_user.id, "Отлично, вводи свой ник")
+            bot.register_next_step_handler(message, get_nick)
+        else:
+            bot.send_message(message.from_user.id, "Кажется ты уже авторизирован")
+    elif message.text == '/start':
+        user = message
+        keyboard = types.InlineKeyboardMarkup();
+        key_yes = types.InlineKeyboardButton(text = 'Регистрация', callback_data = 'reg');
+        key_no = types.InlineKeyboardButton(text = 'Авторизация', callback_data = 'auth');
+        keyboard.add(key_yes);
+        keyboard.add(key_no);
+        bot.send_message(message.from_user.id, 'Привет я джуниор бот!\nДля начала игры тебе необходимо зарегистрироваться (/reg)\nЕсли ты уже играл ранее, то нажми авторизацию(/auth)', reply_markup=keyboard)
+    elif message.text == "/game":
+        if id != -1:
+            user = message
+            bot.send_message(message.from_user.id, 'Подожди немного, мы готовим для тебя пак вопросов...')
+            pack = parsers.complite_pack(72)
+            curr_pack = pack
+            name1 = pack[0][0].name
+            name2 = pack[0][1].name
+            keyboard = types.InlineKeyboardMarkup()
+            key_one = types.InlineKeyboardButton(text = name1.encode('cp1251').decode('utf8'), callback_data = 'first');
+            key_two = types.InlineKeyboardButton(text = name2.encode('cp1251').decode('utf8'), callback_data = 'second');
+            key_exit = types.InlineKeyboardButton(text = "Выйти", callback_data = 'exit')
+            keyboard.add(key_one);
+            keyboard.add(key_two);
+            keyboard.add(key_exit);
+            bot.send_message(message.from_user.id, 'Вопрос ('+str(iterator+1)+'/36)\nКак думаешь какое из этих слов чаще встречается в объявлениях на Avito.ru?', reply_markup=keyboard)
+        else:
+            bot.send_message(message.from_user.id, 'Необходимо авторизироваться (/auth)')
 
-def checker(message):
-    global name
-    name = message.text
-    keyboard = types.InlineKeyboardMarkup();
-    key_yes = types.InlineKeyboardButton(text = 'Да', callback_data = 'yes');
-    key_no = types.InlineKeyboardButton(text = 'Нет', callback_data = 'no');
-    keyboard.add(key_yes);
-    keyboard.add(key_no);
-    question = 'Твой никнейм ' + name + ' ?';
-    bot.send_message(message.from_user.id, text=question,reply_markup=keyboard)
+
+def get_nick(message):
+    global id
+    nick = message.text
+    payload = {'key':"KeyPas","type":"regi", "nick":nick,"id":message.from_user.id}
+    temp = request(payload)
+    if temp.status == 500:
+        bot.send_message(message.from_user.id,'Такой пользователь уже есть (/auth)')
+    elif temp.status == 200:
+        id = temp.id
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_worker(call):
-    if call.data == "yes":
-        bot.send_message(call.message.chat.id, 'Запомню : )');
-    elif call.data == 'no':
-        bot.send_message(call.message.chat.id, 'Напиши /reg');
+    global user,id,curr_pack,iterator,score
+    if call.data == "reg":
+        bot.send_message(user.from_user.id, "Отлично, вводи свой ник")
+        bot.register_next_step_handler(user, get_nick)
+    elif call.data == 'auth':
+        payload = {'key': 'KeyPas', 'type': 'auth', 'id': user.from_user.id}
+        temp = request(payload)
+        bot.send_message(user.from_user.id, "О привет "+temp.name+"\nТвой счёт сейчас : "+temp.score+"\nТвой ид в системе : "+temp.id)
+        id = temp.id
+    elif call.data == 'first':
+        if curr_pack[iterator][0].count > curr_pack[iterator][1].count:
+            bot.send_message(user.from_user.id, "О да\nВариант который ты выбрал встречался на сайте: " + str(curr_pack[iterator][0].count) + " раз!\nДругое: " + str(curr_pack[iterator][1].count) + " раз.")
+            score+=1
+        elif curr_pack[iterator][0].count < curr_pack[iterator][1].count:
+            bot.send_message(user.from_user.id, "Увы...\nВариант который ты выбрал встречался на сайте: " + str(curr_pack[iterator][0].count) + " раз!\nДругое: " + str(curr_pack[iterator][1].count) + " раз.")
+        elif curr_pack[iterator][0].count == curr_pack[iterator][1].count:
+            score+=1
+            bot.send_message(user.from_user.id, "Вау у нас ничья!\nНо мы все равно дадим тебе балл))\nОба слова встречались на сайте :"+str(curr_pack[iterator][0].count) + " раз" )
+
+        iterator+=1
+        if iterator != 36:
+            name1 = curr_pack[iterator][0].name
+            name2 = curr_pack[iterator][1].name
+            keyboard = types.InlineKeyboardMarkup()
+            key_one = types.InlineKeyboardButton(text = name1.encode('cp1251').decode('utf8'), callback_data = 'first')
+            key_two = types.InlineKeyboardButton(text = name2.encode('cp1251').decode('utf8'), callback_data = 'second')
+            key_exit = types.InlineKeyboardButton(text = 'выйти', callback_data = 'exit')
+            keyboard.add(key_one)
+            keyboard.add(key_two)
+            keyboard.add(key_exit)
+            bot.send_message(user.from_user.id, 'Вопрос ('+str(iterator+1)+'/36)\nКак думаешь какое из этих слов чаще встречается в объявлениях на Avito.ru?', reply_markup=keyboard)
+        else:
+            bot.send_message(user.from_user.id, 'Отлично, ты прошёл все вопросы которые я для тебя подготовил, продолжаем?')
+            #сохранение резов тут
+            
+
+    elif call.data == 'second':
+        if curr_pack[iterator][1].count > curr_pack[iterator][0].count:
+            bot.send_message(user.from_user.id, "О да\nВариант который ты выбрал встречался на сайте: " + str(curr_pack[iterator][1].count) + " раз!\nДругое: " + str(curr_pack[iterator][0].count) + " раз.")
+            score+=1
+        elif curr_pack[iterator][1].count < curr_pack[iterator][0].count:
+            bot.send_message(user.from_user.id, "Увы...\nВариант который ты выбрал встречался на сайте: " + str(curr_pack[iterator][1].count) + " раз!\nДругое: " + str(curr_pack[iterator][0].count) + " раз.")
+        elif curr_pack[iterator][1].count == curr_pack[iterator][0].count:
+            score+=1
+            bot.send_message(user.from_user.id, "Вау у нас ничья!\nНо мы все равно дадим тебе балл))\nОба слова встречались на сайте :"+str(curr_pack[iterator][0].count) + " раз" )
+
+        iterator+=1
+        if iterator != 36:
+            name1 = curr_pack[iterator][0].name
+            name2 = curr_pack[iterator][1].name
+            keyboard = types.InlineKeyboardMarkup()
+            key_one = types.InlineKeyboardButton(text = name1.encode('cp1251').decode('utf8'), callback_data = 'first')
+            key_two = types.InlineKeyboardButton(text = name2.encode('cp1251').decode('utf8'), callback_data = 'second')
+            key_exit = types.InlineKeyboardButton(text = 'выйти', callback_data = 'exit')
+            keyboard.add(key_one)
+            keyboard.add(key_two)
+            keyboard.add(key_exit)
+            bot.send_message(user.from_user.id, 'Вопрос ('+str(iterator+1)+'/36)\nКак думаешь какое из этих слов чаще встречается в объявлениях на Avito.ru?', reply_markup=keyboard)
+        else:
+            bot.send_message(user.from_user.id, 'Отлично, ты прошёл все вопросы которые я для тебя подготовил, продолжаем?')
+            #сохранение резов тут
+    elif call.data == "exit":
+        temp = request({'key': 'KeyPas', 'type': 'updt', 'id': id,'up':score})
+        bot.send_message(user.from_user.id, 'Твой результат:'+str(score)+'\nЕсли хочешь ещё поиграть пиши (/game)')
+        score = 0
+        curr_pack = None
 
 bot.polling()

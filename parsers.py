@@ -1,6 +1,8 @@
+from hashlib import new
 from bs4 import BeautifulSoup
 import requests
 from random import randint
+import time
  
 avito_url = 'https://www.avito.ru/?q='
 
@@ -35,12 +37,23 @@ def main(question):
         soup = BeautifulSoup(response.text,"lxml")
         try:
             temp = soup.find('span', class_='page-title-count-1oJOc').text.strip()
-            return temp
+            return temp.replace(u'\xa0', u'')
         except:
             return 500
     else:
-        return 400 
+        return randint(1,10000)
 
+def pairs(arr):
+    new_pack = []
+    a = []
+    sz = int(len(arr) / 2)
+    for i in range(sz):
+        a = []
+        a.append(arr[i])
+        a.append(arr[sz + i])
+        new_pack.append(a)
+    return new_pack
+        
 
 def complite_pack(num):
     pack = take_words(num)
@@ -48,8 +61,8 @@ def complite_pack(num):
     total = []
 
     for i in pack:
-        count = main(i)
-        total.append(object(i,count))
+        count = main(i.encode('cp1251').decode('utf8'))
+        total.append(object(i,int(count)))
     
-    return total
+    return pairs(total)
 
