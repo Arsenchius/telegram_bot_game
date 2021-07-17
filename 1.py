@@ -6,43 +6,26 @@ bot = telebot.TeleBot(token)
 import parsers
 
 name = '';
-surname = '';
-age = 0;
 
 @bot.message_handler(content_types=['text'])
 def start(message):
+    global name
     if message.text == '/reg':
-        bot.send_message(message.from_user.id, "Как тебя зовут?");
-        bot.register_next_step_handler(message, get_name); #следующий шаг – функция get_name
+        bot.send_message(message.from_user.id, "Как мне тебя называть?");
+        bot.register_next_step_handler(message, checker); #следующий шаг – функция get_name
     else:
         answer = parsers.main(message.text.lower())
         bot.send_message(message.from_user.id, answer);
 
-def get_name(message): #получаем фамилию
-    global name;
-    name = message.text;
-    bot.send_message(message.from_user.id, 'Какая у тебя фамилия?');
-    bot.register_next_step_handler(message, get_surname);
-
-def get_surname(message):
-    global surname;
-    surname = message.text;
-    bot.send_message(message.from_user.id, 'Сколько тебе лет?');
-    bot.register_next_step_handler(message, get_age);
-
-def get_age(message):
-    global age;
-    while age == 0:
-        try:
-            age = int(message.text)
-        except Exception:
-            bot.send_message(message.from_user.id, 'Цифрами пожалуйста');
+def checker(message):
+    global name
+    name = message.text
     keyboard = types.InlineKeyboardMarkup();
     key_yes = types.InlineKeyboardButton(text = 'Да', callback_data = 'yes');
     key_no = types.InlineKeyboardButton(text = 'Нет', callback_data = 'no');
     keyboard.add(key_yes);
     keyboard.add(key_no);
-    question = 'Тебе '+str(age)+' лет, тебя зовут '+name+' '+surname+'?';
+    question = 'Твой никнейм ' + name + ' ?';
     bot.send_message(message.from_user.id, text=question,reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: True)
