@@ -88,6 +88,7 @@ def get_nick(message):
         bot.send_message(message.from_user.id,'Такой пользователь уже есть (/auth)')
     elif temp.status == 200:
         id = temp.id
+        bot.send_message(message.from_user.id,'Отлично теперь ты есть в системе\nДля получения информации о себе напиши /info\nДля старта игры пиши /game')
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_worker(call):
