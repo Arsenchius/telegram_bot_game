@@ -2,7 +2,6 @@ from hashlib import new
 from bs4 import BeautifulSoup
 import requests
 from random import randint
-import time
  
 avito_url = 'https://www.avito.ru/?q='
 

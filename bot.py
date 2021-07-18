@@ -1,9 +1,7 @@
-from collections import namedtuple
 from types import SimpleNamespace
 import requests
 import telebot
 from telebot import types
-import sqlite3
 import parsers
 import json
 
@@ -57,7 +55,7 @@ def start(message):
         key_no = types.InlineKeyboardButton(text = 'Авторизация', callback_data = 'auth');
         keyboard.add(key_yes);
         keyboard.add(key_no);
-        bot.send_message(message.from_user.id, 'Привет я джуниор бот!\nДля начала игры тебе необходимо зарегистрироваться (/reg)\nЕсли ты уже играл ранее, то нажми авторизацию(/auth)', reply_markup=keyboard)
+        bot.send_message(message.from_user.id, 'Привет я игровой бот!\nДля начала игры тебе необходимо зарегистрироваться (/reg)\nЕсли ты уже играл ранее, то нажми авторизацию(/auth)', reply_markup=keyboard)
     
     elif message.text == "/game":
         if id != -1:
