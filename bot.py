@@ -119,7 +119,7 @@ def callback_worker(call):
 
         iterator+=1
         
-        if iterator != 36:
+        if iterator != 35:
             name1 = curr_pack[iterator][0].name
             name2 = curr_pack[iterator][1].name
             keyboard = types.InlineKeyboardMarkup()
@@ -149,7 +149,7 @@ def callback_worker(call):
 
         iterator+=1
 
-        if iterator != 36:
+        if iterator != 35:
             name1 = curr_pack[iterator][0].name
             name2 = curr_pack[iterator][1].name
             keyboard = types.InlineKeyboardMarkup()
